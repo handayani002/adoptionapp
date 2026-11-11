@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      DT_ENV: https://srz47642.live.dynatrace.com
+      DT_ENV: https://srz47642.apps.dynatrace.com
       DT_MONITOR_ID: ${{ vars.DT_MONITOR_ID }}
       DT_API_TOKEN: ${{ secrets.DT_API_TOKEN }}
 
@@ -17,11 +17,19 @@ jobs:
         run: |
           echo "Monitor ID: ${DT_MONITOR_ID}"
 
-      - name: Test Synthetic API
+      - name: Trigger Synthetic Monitor
         run: |
-          curl -v \
+          curl -sS -X POST \
             -H "Authorization: Bearer ${DT_API_TOKEN}" \
-            "https://7h5gpqcqjnzk2ewfgs56cho77ko5hq4q--srz47642.prod22.apps.dynatrace.com/platform/synthetic/v1/locations?capability=BROWSER"
-            
+            -H "Content-Type: application/json" \
+            -d "{
+              \"monitors\": [
+                {
+                  \"monitorId\": \"${DT_MONITOR_ID}\"
+                }
+              ]
+            }" \
+            "${DT_ENV}/platform/synthetic/v1/executions/batch"
+
       - name: Success
         run: echo "Synthetic monitor triggered."
