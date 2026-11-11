@@ -1,0 +1,32 @@
+name: Trigger Dynatrace Synthetic Monitor
+
+on:
+  workflow_dispatch:
+
+jobs:
+  trigger-synthetic:
+    runs-on: ubuntu-latest
+
+    env:
+      DT_ENV: srz47642.apps.dynatrace.com
+      DT_MONITOR_ID: ${{ vars.DT_MONITOR_ID }}
+      DT_API_TOKEN: ${{ secrets.DT_API_TOKEN }}
+
+    steps:
+      - name: Trigger Dynatrace browser synthetic
+        run: |
+          if [ -z "$DT_MONITOR_ID" ]; then
+            echo "DT_MONITOR_ID is not set. Add it as a repository or environment variable."
+            exit 1
+          fi
+
+          if [ -z "$DT_API_TOKEN" ]; then
+            echo "DT_API_TOKEN is not set. Add it as a GitHub Actions secret."
+            exit 1
+          fi
+
+          curl -sS -X POST \
+            "https://${DT_ENV}/api/v2/synthetic/monitors/${DT_MONITOR_ID}/execute" \
+            -H "Authorization: Api-Token ${DT_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d '{}'
