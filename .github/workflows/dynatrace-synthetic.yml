@@ -17,12 +17,11 @@ jobs:
         run: |
           echo "Monitor ID: ${DT_MONITOR_ID}"
 
-      - name: Trigger monitor
+      - name: Test Synthetic API access
         run: |
           curl -v \
-            -X POST \
-            "${DT_ENV}/platform/synthetic/v1/monitors/${DT_MONITOR_ID}/execute" \
-            -H "Authorization: Bearer ${DT_API_TOKEN}"
+            -H "Authorization: Bearer ${DT_API_TOKEN}" \
+            "${DT_ENV}/platform/synthetic/v1/monitors"
 
       - name: Success
         run: echo "Synthetic monitor triggered."
