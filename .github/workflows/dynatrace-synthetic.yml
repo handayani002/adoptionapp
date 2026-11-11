@@ -17,11 +17,11 @@ jobs:
         run: |
           echo "Monitor ID: ${DT_MONITOR_ID}"
 
-      - name: Test Synthetic API access
+      - name: Test Synthetic API
         run: |
           curl -v \
             -H "Authorization: Bearer ${DT_API_TOKEN}" \
-            "${DT_ENV}/platform/synthetic/v1/monitors"
-
+            "https://7h5gpqcqjnzk2ewfgs56cho77ko5hq4q--srz47642.prod22.apps.dynatrace.com/platform/synthetic/v1/locations?capability=BROWSER"
+            
       - name: Success
         run: echo "Synthetic monitor triggered."
