@@ -18,8 +18,9 @@ jobs:
           echo "Monitor ID: ${DT_MONITOR_ID}"
 
       - name: Trigger Synthetic Monitor
+        id: trigger
         run: |
-          curl -sS -X POST \
+          RESPONSE=$(curl -sS -X POST \
             -H "Authorization: Bearer ${DT_API_TOKEN}" \
             -H "Content-Type: application/json" \
             -d "{
@@ -29,7 +30,56 @@ jobs:
                 }
               ]
             }" \
-            "${DT_ENV}/platform/synthetic/v1/executions/batch"
+            "${DT_ENV}/platform/synthetic/v1/executions/batch")
 
-      - name: Success
-        run: echo "Synthetic monitor triggered."
+          echo "Trigger response: $RESPONSE"
+
+          BATCH_ID=$(echo "$RESPONSE" | jq -r '.batchId')
+          if [ "$BATCH_ID" = "null" ] || [ -z "$BATCH_ID" ]; then
+            echo "::error::Failed to get batchId from trigger response"
+            exit 1
+          fi
+
+          echo "batch_id=${BATCH_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for Execution Result
+        env:
+          BATCH_ID: ${{ steps.trigger.outputs.batch_id }}
+        run: |
+          MAX_ATTEMPTS=30
+          DELAY=10
+
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Attempt $attempt/$MAX_ATTEMPTS: Checking batch ${BATCH_ID}..."
+
+            STATUS_RESPONSE=$(curl -sS \
+              -H "Authorization: Bearer ${DT_API_TOKEN}" \
+              "${DT_ENV}/platform/synthetic/v1/executions/batch/${BATCH_ID}")
+
+            echo "Status response: $STATUS_RESPONSE"
+
+            BATCH_STATUS=$(echo "$STATUS_RESPONSE" | jq -r '.batchStatus')
+
+            case "$BATCH_STATUS" in
+              SUCCESS)
+                echo "Synthetic monitor execution succeeded."
+                exit 0
+                ;;
+              FAILED|FAILED_TO_EXECUTE|NOT_TRIGGERED)
+                echo "::error::Synthetic monitor execution failed with status: ${BATCH_STATUS}"
+                echo "$STATUS_RESPONSE" | jq '.failedExecutions, .triggeringProblems'
+                exit 1
+                ;;
+              RUNNING|"null"|"")
+                echo "Status: ${BATCH_STATUS:-pending}. Waiting ${DELAY}s..."
+                sleep "$DELAY"
+                ;;
+              *)
+                echo "::error::Unexpected batch status: ${BATCH_STATUS}"
+                exit 1
+                ;;
+            esac
+          done
+
+          echo "::error::Timeout waiting for batch ${BATCH_ID} to complete after $((MAX_ATTEMPTS * DELAY)) seconds"
+          exit 1
